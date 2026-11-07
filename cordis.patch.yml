@@ -1,0 +1,24 @@
+# dsh-plugin-ai-memory — bundle patch layer.
+#
+# Installed with:
+#
+#   dsh plugin --profile <name> add link:/abs/path/to/dsh-plugin-ai-memory
+#
+# The loader merges this patch after the profile's own layer, so a profile
+# override still targets the row by its id:
+#
+#   - id: dsh-plugin-ai-memory
+#     config: { ... }
+#
+# The entry id MUST equal the package name: dsh-client-modules serves the
+# browser half at /plugins/<entry-id>/client.js and the built bundle calls
+# __ModuleLoader__.load({ id }) with the same value.
+- insert:
+    - id: dsh-plugin-ai-memory
+      name: 'dsh-plugin-ai-memory'
+      config:
+        enabled: true
+        serverUrl: 'http://127.0.0.1:49374'
+        capture: true
+        captureMode: scripts
+        mcp: true

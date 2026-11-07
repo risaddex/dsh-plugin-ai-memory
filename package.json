@@ -1,0 +1,43 @@
+{
+  "name": "dsh-plugin-ai-memory",
+  "version": "0.2.0",
+  "private": true,
+  "description": "DeepSeek Harness bundle for ai-memory: runs the upstream ai-memory hooks/dsh lifecycle hooks globally, wires the ai-memory MCP server (local or remote workstream), and ships a left-sidebar panel to configure and verify it.",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client",
+    "assets",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "ATTRIBUTION.md"
+  ],
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "ai-memory",
+    "memory",
+    "hooks",
+    "mcp"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  }
+}

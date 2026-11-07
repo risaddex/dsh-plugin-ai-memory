@@ -1,0 +1,171 @@
+# Snippet para o host do ai-memory (Linux) — LLM local via oMLX no Mac
+
+Cole no `config.toml` do servidor ai-memory. O caminho depende de como o serviço
+sobe:
+
+| Instalação | Caminho do config |
+|---|---|
+| serviço de usuário / systemd `--user` | `~/.local/share/ai-memory/config.toml` |
+| systemd de sistema (usuário `ai-memory`) | `/var/lib/ai-memory/config.toml` (ou `--data-dir` do unit) |
+| container | volume montado no `--data-dir` |
+
+Depois de editar: `systemctl restart ai-memory` (ou o nome do seu unit) e confira
+em `/web/health` que a linha **llm provider** deixou de dizer `disabled`.
+
+## Opção 1 (recomendada) — oMLX do MacBook pela tailnet
+
+O oMLX está rodando no Mac (`~/.omlx/settings.json`: `host = 0.0.0.0`,
+`port = 8000`, `auto_start_on_launch = true`) e expõe dois modelos:
+
+| model id | tipo |
+|---|---|
+| `gemma-4-e4b-it-4bit` | chat/completions (consolidação, query answer, lint) |
+| `bge-m3-mlx-fp16` | embeddings |
+
+O endpoint na tailnet é `http://100.68.18.108:8000/v1` (IP tailscale do
+MacBook-Pro-de-Danilo). O oMLX exige API key: pegue o valor em
+`auth.api_key` do `~/.omlx/settings.json` e guarde **só no env do serviço**.
+
+```toml
+# ---- LLM: oMLX local pela tailnet -------------------------------------------
+# openai-compat é o dialeto que o oMLX fala (OpenAI /v1/chat/completions).
+llm_provider = "openai-compat"
+llm_base_url = "http://100.68.18.108:8000/v1"
+llm_model    = "gemma-4-e4b-it-4bit"
+
+# O servidor MLX não garante response_format=json_schema estrito.
+llm_compat_strict = false
+# Respostas locais podem ser lentas na primeira chamada (carga do modelo).
+llm_timeout_secs = 600
+
+# Tarefas de volume alto podem usar um modelo/endpoint próprio. Como aqui há só
+# um modelo de chat, herdam o global — bloco mantido como documentação.
+# [llm.consolidation]
+# provider    = "openai-compat"
+# base_url    = "http://100.68.18.108:8000/v1"
+# model       = "gemma-4-e4b-it-4bit"
+# api_key_env = "AI_MEMORY_OMLX_KEY"
+
+# Busca com resposta sintetizada (memory_query answer=true / memory_explore).
+# [llm.query_answer]
+# provider    = "openai-compat"
+# base_url    = "http://100.68.18.108:8000/v1"
+# model       = "gemma-4-e4b-it-4bit"
+# api_key_env = "AI_MEMORY_OMLX_KEY"
+```
+
+Env do serviço (`~/.config/ai-memory/env` no serviço de usuário; para systemd de
+sistema use `EnvironmentFile=` apontando para um arquivo 0600):
+
+```sh
+# ATENÇÃO: openai-compat lê a chave de LLM_API_KEY (não OPENAI_API_KEY).
+# OPENAI_API_KEY é exigido só pelo provider "openai".
+LLM_API_KEY=<auth.api_key do ~/.omlx/settings.json>
+# nome alternativo por tarefa, se usar [llm.<task>] api_key_env:
+# AI_MEMORY_OMLX_KEY=<mesma chave>
+```
+
+Erro típico se a variável estiver errada/ausente: a consolidação falha com
+`consolidation failed: class=provider status=401` (o servidor chamou o oMLX sem
+`Authorization`). Confira com
+`curl -H "Authorization: Bearer $LLM_API_KEY" http://100.68.18.108:8000/v1/models`.
+
+Cuidado: um `api_key_env` nomeado e vazio **faz o `serve` não subir** —
+confira o arquivo antes do restart.
+
+### Pré-requisitos de rede
+
+1. O oMLX precisa aceitar conexões da tailnet: no Mac, `omlx start` com
+   `host = 0.0.0.0` (já é o default do seu `settings.json`). Confirme:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' http://100.68.18.108:8000/v1/models   # 401 = no ar
+   ```
+2. O Mac não pode dormir enquanto consolidar (o macOS suspende o servidor).
+3. ACL da tailnet: o host `ai-memory` é um nó *tagged*; se as ACLs restringirem
+   `tagged-devices → user devices`, libere a porta 8000 (ou rode o oMLX no
+   próprio host). Teste a partir do host ai-memory:
+   ```bash
+   curl -s -H "Authorization: Bearer $OPENAI_API_KEY" http://100.68.18.108:8000/v1/models
+   ```
+
+## Opção 2 — API remota (fallback se o Mac estiver fora)
+
+DeepSeek via OpenAI-compat (custo ~US$0,01–0,05 por sessão consolidada):
+
+```toml
+# llm_provider = "openai-compat"
+# llm_base_url = "https://api.deepseek.com/v1"
+# llm_model    = "deepseek-chat"
+# llm_compat_strict = false
+```
+
+Env: `LLM_API_KEY=sk-...` (chave do DeepSeek; `openai-compat` lê essa variável).
+
+Se quiser o oMLX como principal e a API como reserva:
+
+```toml
+[[llm_fallbacks]]
+provider = "openai-compat"
+model    = "deepseek-chat"
+base_url = "https://api.deepseek.com/v1"
+api_key_env = "DEEPSEEK_API_KEY"
+```
+
+## Embeddings: não mexa
+
+O servidor já usa embeddings locais (`local/all-MiniLM-L6-v2`, dim 384) e
+`/web/health` mostra `embedding provider ok`. O oMLX também tem
+`bge-m3-mlx-fp16`, mas trocar o embedder **invalida os vetores existentes**
+(é preciso reindexar) e não é necessário para consolidar. Se um dia quiser:
+
+```toml
+# embedding_provider = "openai-compat"
+# embedding_base_url = "http://100.68.18.108:8000/v1"
+# embedding_model    = "bge-m3-mlx-fp16"
+# embedding_dim      = 1024      # confira a dimensão do modelo antes
+```
+
+## Verificação
+
+```bash
+# 1. provider ativo (deve sair de "disabled")
+curl -s -H "Authorization: Bearer $TOKEN" https://ai-memory.tail550122.ts.net/web/health | grep -o "llm provider[^<]*"
+
+# 2. consolidação sem gastar token (dry run)
+curl -s -X POST https://ai-memory.tail550122.ts.net/mcp \
+  -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"memory_consolidate","arguments":{"dry_run":true}}}'
+
+# 3. consolidação de verdade (a mesma chamada, sem dry_run) — no oMLX local
+#    uma sessão típica levou ~50 s; sessões longas podem passar de minutos.
+```
+
+No painel do plugin (DSH), o mesmo par está nos botões **Consolidate now** e
+**Dry run**.
+
+
+## Aplicado em k3s (este cluster)
+
+O servidor roda como Deployment no k3s do IdeaPad, então a configuração foi
+aplicada por variáveis de ambiente + Secret (precedência: env > config.toml):
+
+```bash
+# chave (nunca em argv): lida do stdin
+kubectl -n ai-memory create secret generic ai-memory-llm \
+  --from-file=LLM_API_KEY=/dev/stdin --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n ai-memory set env deploy/ai-memory --from=secret/ai-memory-llm \
+  AI_MEMORY_LLM_PROVIDER=openai-compat \
+  AI_MEMORY_LLM_BASE_URL=http://100.68.18.108:8000/v1 \
+  AI_MEMORY_LLM_MODEL=gemma-4-e4b-it-4bit \
+  AI_MEMORY_LLM_COMPAT_STRICT=false \
+  AI_MEMORY_LLM_TIMEOUT_SECS=600
+
+kubectl -n ai-memory rollout status deploy/ai-memory
+```
+
+Backup do Deployment antes da mudança: `~/ai-memory-deploy-backup-*.yaml` no
+IdeaPad. Para reverter: `kubectl -n ai-memory set env deploy/ai-memory \
+AI_MEMORY_LLM_PROVIDER- AI_MEMORY_LLM_BASE_URL- AI_MEMORY_LLM_MODEL- \
+AI_MEMORY_LLM_COMPAT_STRICT- AI_MEMORY_LLM_TIMEOUT_SECS- LLM_API_KEY-`.
