@@ -1,10 +1,12 @@
 {
   "name": "dsh-plugin-ai-memory",
   "version": "0.2.0",
-  "private": true,
   "description": "DeepSeek Harness bundle for ai-memory: runs the upstream ai-memory hooks/dsh lifecycle hooks globally, wires the ai-memory MCP server (local or remote workstream), and ships a left-sidebar panel to configure and verify it.",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "check:client": "node scripts/check-client-halves.mjs"
+  },
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
