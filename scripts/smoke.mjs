@@ -290,6 +290,21 @@ const statusSource = readFileSync(new URL('../lib/routes.js', import.meta.url), 
 check('status config projects defaultAgentPreset', /defaultAgentPreset: config\.defaultAgentPreset/.test(statusSource))
 check('status config projects repoRoots', /repoRoots: config\.repoRoots/.test(statusSource))
 
+// 14. writeMarker is exposed on the API (Config tab "Write marker" button).
+check('api.writeMarker is exposed', typeof api.writeMarker === 'function')
+
+// 15. resolve from a subdirectory cwd through the ancestor marker.
+const repoB = join(ROOT, 'repo-b')
+mkdirSync(join(repoB, 'src'), { recursive: true })
+writeFileSync(join(repoB, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-app"\n')
+const fromSub = projectMap.resolveProjectPath({ projectPathMap: {}, repoRoots: [] }, 'acme', 'acme-app', [join(repoB, 'src')])
+check('resolveProjectPath finds ancestor marker from a subdirectory cwd', fromSub.path === repoB && fromSub.source === 'marker', JSON.stringify({ path: fromSub.path, source: fromSub.source }))
+
+// 16. composer: recipient reset on workspace change, send requires a listed recipient.
+const pageSource = readFileSync(new URL('../client/client.page.js', import.meta.url), 'utf8')
+check('to_workspace change clears to_project', /to_workspace: event\.target\.value, to_project: ""/.test(pageSource))
+check('send requires a listed recipient', /!projects\.includes\(composer\.to_project\)/.test(pageSource))
+
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
 console.log(failed.length === 0 ? '\nSMOKE OK' : `\n${failed.length} FAILED`)

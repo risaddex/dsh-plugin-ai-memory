@@ -382,7 +382,8 @@ function isStatusDocument(value) {
         ]),
         h("div", { key: "tw", className: "am-row" }, [
           h("label", { key: "l" }, "to_workspace"),
-          h("select", { key: "s", className: "am-sel", value: composer.to_workspace, onChange: set("to_workspace") },
+          h("select", { key: "s", className: "am-sel", value: composer.to_workspace,
+            onChange: (event) => setComposer({ ...composer, to_workspace: event.target.value, to_project: "" }) },
             (scopes.length ? scopes : [composer.to_workspace]).filter(Boolean).map((w) => h("option", { key: w, value: w }, w))),
         ]),
         h("div", { key: "tp", className: "am-row" }, [
@@ -413,7 +414,10 @@ function isStatusDocument(value) {
       ]) : null,
     ], [
       h("button", { key: "c", className: "am-btn", type: "button", onClick: () => setComposer(null) }, t("inbox.close")),
-      h("button", { key: "s", className: "am-btn primary", type: "button", disabled: busy !== "", onClick: async () => {
+      h("button", { key: "s", className: "am-btn primary", type: "button",
+        disabled: busy !== "" || !composer.to_project || !projects.includes(composer.to_project),
+        onClick: async () => {
+        if (!composer.to_project || !projects.includes(composer.to_project)) return;
         const value = await run("send", "sendMessage", composer);
         if (value) {
           setFlash({ ok: true, text: t("inbox.sent") });
