@@ -3,7 +3,7 @@
  * context in a throwaway DSH_HOME and asserts every side effect it promises.
  * Run with: node scripts/smoke.mjs
  */
-import { mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = '/tmp/ai-memory-smoke'
@@ -123,11 +123,13 @@ check('invalid serverName falls back',
 
 // 6b. agent guidance: the cross-project inbox policy is registered
 const messaging = sections.find((entry) => entry.name === 'ai-memory:messaging')
+const messagingText = typeof messaging?.text === 'function' ? messaging.text() : (messaging && messaging.text) || ''
 check('system-prompt section registered', Boolean(messaging))
-check('guidance names the send tool', Boolean(messaging && messaging.text.includes('memory_message_send')))
-check('guidance names the pop tool', Boolean(messaging && messaging.text.includes('memory_message_pop')))
-check('guidance forbids page-as-notice', Boolean(messaging && messaging.text.includes('never surfaced as mail')))
-check('guidance marks popped mail untrusted', Boolean(messaging && messaging.text.toLowerCase().includes('untrusted')))
+check('guidance text can be a function', typeof messaging?.text === 'function' || typeof messaging?.text === 'string')
+check('guidance names the send tool', messagingText.includes('memory_message_send'))
+check('guidance names the pop tool', messagingText.includes('memory_message_pop'))
+check('guidance forbids page-as-notice', messagingText.includes('never surfaced as mail'))
+check('guidance marks popped mail untrusted', messagingText.toLowerCase().includes('untrusted'))
 check('guidance is literal', Boolean(messaging && messaging.interpolate === false))
 
 // 7. token usage: collector shapes match ai-memory's TokenCall JSON, and the
@@ -205,6 +207,97 @@ for (const dispose of effects) {
     /* ignore */
   }
 }
+
+// 11. inbox helpers: strip body, require explicit cancel/send scopes, interpolate markers
+const inbox = await import('../lib/inbox.js')
+const projectMap = await import('../lib/project-map.js')
+const { guidanceText } = await import('../lib/prompt.js')
+
+const markerDir = join(ROOT, 'repo-a')
+mkdirSync(markerDir, { recursive: true })
+mkdirSync(join(markerDir, '.git')) // a repo root: the hook's walk stops there
+writeFileSync(join(markerDir, '.ai-memory.toml'), 'workspace = "guedder"\nproject = "guedder-guedder-api"\n')
+const parsed = projectMap.parseMarker(join(markerDir, '.ai-memory.toml'))
+check('parseMarker reads workspace/project', parsed.workspace === 'guedder' && parsed.project === 'guedder-guedder-api')
+check('findMarker walks up from a nested dir', projectMap.findMarker(join(markerDir, 'src', 'x')).workspace === 'guedder')
+
+const publicRow = inbox.publicMessage({
+  id: '01a20f0d-6ffc-7421-b73d-b18e93f2d1fe',
+  subject: 'Minhas vendas',
+  body: 'SECRET BODY MUST NOT LEAK',
+  evidence: 'secret evidence',
+  state: 'pending',
+  created_at: '2026-11-24T19:34:00-03:00',
+  from_workspace: 'guedder',
+  from_project: 'guedder-guedder-api',
+}, { workspace: 'guedder', project: 'guedder-guedder-ng' })
+check('publicMessage keeps subject and names', publicRow.subject === 'Minhas vendas' && publicRow.to_project === 'guedder-guedder-ng' && publicRow.from_project === 'guedder-guedder-api')
+check('publicMessage strips body and evidence', publicRow.body === undefined && publicRow.evidence === undefined)
+
+const prompt = inbox.seededPrompt(publicRow)
+check('seeded prompt names workspace/project/id', prompt.includes('workspace: guedder') && prompt.includes('project: guedder-guedder-ng') && prompt.includes(publicRow.id))
+check('seeded prompt omits the body and mentions untrusted input', !prompt.includes('SECRET BODY') && prompt.includes('não confiável') && prompt.includes('já tiver sido reivindicada'))
+
+let cancelThrew = ''
+try { inbox.cancelArgs({ workspace: 'guedder', project: 'api' }) } catch (error) { cancelThrew = error.message }
+check('cancel without message_id is refused', /message_id/.test(cancelThrew))
+let cancelSender = ''
+try { inbox.cancelArgs({ message_id: 'abc', workspace: 'other', project: 'x' }, { workspace: 'guedder', project: 'api' }) } catch (error) { cancelSender = error.message }
+check('cancel from a non-sender is refused', /sender/.test(cancelSender))
+const cancelOk = inbox.cancelArgs({ message_id: 'abc', workspace: 'guedder', project: 'api' }, { workspace: 'guedder', project: 'api' })
+check('cancel args pass explicit sender scope', cancelOk.message_id === 'abc' && cancelOk.workspace === 'guedder')
+
+let sendThrew = ''
+try { inbox.sendArgs({ to_workspace: 'g', to_project: 'app', body: 'hi' }) } catch (error) { sendThrew = error.message }
+check('send without from_ scope is refused', /from_workspace/.test(sendThrew))
+const sendOk = inbox.sendArgs({ to_workspace: 'g', to_project: 'app', from_workspace: 'g', from_project: 'api', body: 'pedido', subject: 's', nature: 'reported' })
+check('send args include from/to and subject', sendOk.from_project === 'api' && sendOk.to_project === 'app' && sendOk.subject === 's')
+
+const scoped = guidanceText({ workspace: 'guedder', project: 'guedder-guedder-api' })
+check('guidance interpolates the marker scope', scoped.includes('workspace "guedder"') && scoped.includes('project "guedder-guedder-api"'))
+check('guidance without a marker warns not to guess', guidanceText(null).includes('Do not guess'))
+
+check('api.listInbox exists', typeof api.listInbox === 'function')
+check('api.cancelMessage exists', typeof api.cancelMessage === 'function')
+check('api.sendMessage exists', typeof api.sendMessage === 'function')
+check('api.mapProject exists', typeof api.mapProject === 'function')
+
+// listInbox aggregates MCP calls and never forwards body
+const listed = await inbox.listInbox(async (name, args) => {
+  if (name !== 'memory_message_list') throw new Error('unexpected tool ' + name)
+  if (args.box === 'inbox' && args.project === 'guedder-guedder-ng') {
+    return { messages: [{ id: 'm1', subject: 'Minhas vendas', body: 'SECRET', from_workspace: 'guedder', from_project: 'guedder-guedder-api', created_at: '2026-11-24T19:34:00-03:00', state: 'pending' }] }
+  }
+  return { messages: [] }
+}, { projectPathMap: { 'guedder/guedder-guedder-ng': markerDir }, repoRoots: [markerDir] }, { cwd: markerDir })
+check('listInbox pending count', listed.pending === 1)
+check('listInbox strips body for the panel', listed.messages[0].body === undefined && listed.messages[0].subject === 'Minhas vendas')
+check('listInbox canCancel when current marker is the sender', listed.messages[0].canCancel === true)
+check('listInbox uses max 3.4.2 page size', inbox.LIST_LIMIT_MAX === 200)
+
+// 12. RPC adapter calls handlers unbound (registerRpc: handler(payload)).
+// mapProject must not depend on `this`, and must write the marker.
+const detachedMap = api.mapProject
+let detachedOk = false
+let detachedErr = ''
+try {
+  const out = await detachedMap({ workspace: 'guedder', project: 'guedder-guedder-ng', dir: markerDir, writeMarker: true, overwrite: true })
+  detachedOk = out && out.ok === true && out.marker && out.marker.written === true
+} catch (error) { detachedErr = error.message }
+check('mapProject works when called unbound (RPC adapter)', detachedOk, detachedErr)
+
+// 13. status() projects defaultAgentPreset and repoRoots for the panel.
+const statusSource = readFileSync(new URL('../lib/routes.js', import.meta.url), 'utf8')
+check('status config projects defaultAgentPreset', /defaultAgentPreset: config\.defaultAgentPreset/.test(statusSource))
+check('status config projects repoRoots', /repoRoots: config\.repoRoots/.test(statusSource))
+
+// 14-21. Inbox and project-map checks live in smoke-inbox.mjs.
+const { runInboxChecks } = await import('./smoke-inbox.mjs')
+await runInboxChecks({ api, check, ROOT })
+const { runServerRoutedChecks } = await import('./smoke-server-routed.mjs')
+await runServerRoutedChecks({ api, check, ROOT })
+const { runMarkerChecks } = await import('./smoke-markers.mjs')
+await runMarkerChecks({ check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)

@@ -196,8 +196,10 @@ see what the server already knows.
 
 ## Panel
 
+* **Tabs** — **Config** (the settings below) and **Inbox** (pending
+  cross-project mail, with a pending badge).
 * **Status chips** — server reachability (`GET /healthz`), capture state, MCP row
-  state, and the `mcpGuard` reason when a row was skipped.
+  state, and the `mcpGuard` reason when a row was skipped (on the Config tab).
 * **Server / workstream** — URL, token (masked, never displayed back), data dir,
   project strategy; **Save**, **Test connection**, **Send test event** (POSTs one
   real `/hook` event and shows the HTTP status), **List workstreams**.
@@ -217,6 +219,36 @@ see what the server already knows.
 
 There is also one model-facing tool, `ai_memory_status`, so the agent can check
 the wiring itself.
+
+* **Inbox** — lists pending `memory_message_*` mail, grouped by
+  `to_workspace` / `to_project` (subject, sender and time only; the body never
+  reaches the browser). **Abrir agente** starts a new DSH session in the
+  recipient checkout (`sessions.create` with workspaceId resolve and preset
+  fallbacks; the preset is inherited from the current session or
+  `defaultAgentPreset`, never hardcoded to `ptc`) and prefills a prompt that
+  names the exact `workspace` / `project` / `message_id` and tells the agent to
+  `memory_message_pop`, treating the body as untrusted input. The prompt is not
+  auto-sent; the panel itself never pops. **Cancelar** is shown only when the
+  current `.ai-memory.toml` is the sender, and calls `memory_message_cancel`
+  with an explicit `message_id` (omitting it would clear the whole outbox).
+  **Novo handoff** sends with explicit `from_*` / `to_*`. Projects without a
+  local checkout get **Mapear projeto**, which records `projectPathMap` and can
+  write a marker through the existing `writeMarker` helper. Checkouts whose marker
+  (or an ancestor's) selects a named server (`server = ...`) are not queried: the
+  panel only reads the plugin-wide server, and the hooks fail closed for those
+  checkouts the same way. They show up as a warning instead of an empty inbox.
+
+Field names and pagination follow ai-memory **3.4.2**, confirmed against the
+running server's in-binary catalog: authenticated `GET /api/v1/docs`, then
+`GET /api/v1/docs/agent-messaging` (Markdown at `/web/docs/agent-messaging.md`)
+and `GET /api/v1/docs/frontend-api`. Apply the server's URL prefix and bearer;
+the docs do not need a network fetch from GitHub. `memory_message_list` is
+oldest-first, pending only, `limit` default 50 / maximum 200, with **no
+offset** — the panel asks for 200. The web badge at
+`GET /web/inbox/notifications` is not called from the browser (or by this
+panel); listing goes through the host RPC to MCP so the bearer stays on the
+host.
+
 
 ## Guiding agents to use the cross-project inbox
 
