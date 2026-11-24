@@ -92,7 +92,48 @@ const en = {
   "hint.binary.missing": "not found on PATH (capture still works through the hook scripts)",
   "event.none": "No deliveries yet. Use the harness and this list fills up.",
   "note.reload": "An MCP row change reloads the profile patch live; the tools appear as mcp__<name>__memory_query.",
+
+  "tab.config": "Config",
+  "tab.inbox": "Inbox",
+  "inbox.currentSession": "Sessão atual (marker .ai-memory.toml):",
+  "inbox.noMarker": "nenhum marker neste checkout",
+  "inbox.newHandoff": "Novo handoff",
+  "inbox.pending": "Pendentes",
+  "inbox.loading": "Carregando a caixa de entrada…",
+  "inbox.empty": "Nenhuma mensagem pendente nos projetos conhecidos.",
+  "inbox.from": "de",
+  "inbox.noSubject": "(sem assunto)",
+  "inbox.sameProject": "mesmo projeto",
+  "inbox.openAgent": "Abrir agente",
+  "inbox.mapProject": "Mapear projeto",
+  "inbox.cancel": "Cancelar",
+  "inbox.noCheckout": "sem checkout local",
+  "inbox.noSessions": "O host não expõe sessions.create — não foi possível abrir o agente.",
+  "inbox.opened": "Nova sessão aberta com o prompt pré-preenchido (não enviado).",
+  "inbox.mapTitle": "Mapeamento projeto → caminho local",
+  "inbox.mapScope": "workspace / projeto",
+  "inbox.mapPath": "caminho",
+  "inbox.currentPill": "sessão atual",
+  "inbox.composerHint": "O destinatário não vê esta sessão. O corpo precisa ser autocontido (arquivos, contrato, critério de aceite). from_* vem do marker e não pode ser inferido — o servidor recusa envio sem eles.",
+  "inbox.fromMarker": "Preenchido a partir de .ai-memory.toml da sessão atual.",
+  "inbox.subject": "Assunto",
+  "inbox.body": "Corpo",
+  "inbox.close": "Fechar",
+  "inbox.send": "Enviar para o inbox",
+  "inbox.sent": "Mensagem enviada.",
+  "inbox.cancelTitle": "Cancelar mensagem",
+  "inbox.cancelConfirmPrefix": "Retratar",
+  "inbox.cancelConfirmMid": "enviada para",
+  "inbox.cancelConfirmSuffix": "Só o remetente pode cancelar, e só enquanto o estado for pending.",
+  "inbox.back": "Voltar",
+  "inbox.retract": "Retratar",
+  "inbox.cancelled": "Mensagem retratada.",
+  "inbox.mapHint": "Não há checkout local para este projeto nesta máquina. Informe o caminho e, se quiser, grave um .ai-memory.toml.",
+  "inbox.mapDir": "Caminho local",
+  "inbox.saveMap": "Salvar mapa e marker",
+  "inbox.mapped": "Projeto mapeado.",
 };
+
 const zh = { ...en, "panel.label": "AI 记忆", "panel.title": "AI 记忆" };
 
 // ── styles ──────────────────────────────────────────────────────────────────
@@ -141,6 +182,43 @@ const css = `
 .am-list-row{display:grid;grid-template-columns:74px 1fr auto;gap:8px;padding:2px 0;
   border-bottom:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.16))}
 .am-empty{color:var(--dsw-alias-label-secondary,#59636e);font-size:12px}
+
+.am-tabs{display:flex;gap:2px;margin:0 0 16px;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28))}
+.am-tab{appearance:none;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary,#59636e);
+  padding:7px 14px 8px;margin-bottom:-1px;cursor:pointer;font:12.5px/1.4 inherit;display:inline-flex;align-items:center;gap:7px}
+.am-tab:hover{color:var(--dsw-alias-label-primary,#1f2328)}
+.am-tab[aria-selected="true"]{color:var(--dsw-alias-label-primary,#1f2328);border-bottom-color:var(--dsw-alias-brand-primary,#3b6cf6);font-weight:600}
+.am-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 5px;border-radius:999px;
+  background:var(--dsw-alias-brand-primary,#3b6cf6);color:#fff;font-size:10px;font-weight:650;line-height:1}
+.am-context{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:8px 12px;
+  border:1px dashed var(--dsw-alias-border-l1,rgba(128,128,128,.28));border-radius:8px;background:rgba(88,166,255,.05)}
+.am-context code{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:11.5px;color:var(--dsw-alias-interactive-bg-primary,#3b6cf6)}
+.am-group{margin-bottom:12px}
+.am-group-h{display:flex;align-items:baseline;gap:8px;margin:0 0 6px;font-size:12px;color:var(--dsw-alias-label-secondary,#59636e)}
+.am-group-h strong{color:var(--dsw-alias-label-primary,#1f2328);font-weight:600;font-size:13px}
+.am-group-h code{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:11px}
+.am-msg{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:8px 12px;margin-bottom:6px;
+  border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28));border-radius:8px;background:var(--dsw-alias-bg-base,#fff)}
+.am-msg-main{min-width:0;flex:1}
+.am-msg-title{margin:0 0 4px;font-size:13px;font-weight:600}
+.am-msg-meta{margin:0;font-size:11.5px;color:var(--dsw-alias-label-secondary,#59636e)}
+.am-msg-meta .sep{margin:0 6px;opacity:.45}
+.am-pill{display:inline-flex;align-items:center;height:18px;padding:0 7px;margin-left:6px;border-radius:999px;
+  border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28));font-size:10.5px;color:var(--dsw-alias-label-secondary,#59636e);vertical-align:1px}
+.am-msg-actions{display:flex;gap:6px;flex-wrap:wrap;flex:none;justify-content:flex-end;align-items:center}
+.am-btn.danger{color:var(--dsw-alias-state-error-primary,#c11);border-color:rgba(193,17,17,.35)}
+.am-map-table{width:100%;border-collapse:collapse;font-size:12px}
+.am-map-table th,.am-map-table td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28));vertical-align:middle}
+.am-map-table th{font-size:11px;font-weight:600;color:var(--dsw-alias-label-secondary,#59636e)}
+.am-map-table code{font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:11px}
+.am-ta{width:100%;min-height:110px;resize:vertical;border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28));
+  border-radius:7px;background:var(--dsw-alias-bg-base,#fff);color:inherit;padding:8px 9px;font:12.5px/1.5 inherit;outline:none}
+.am-ta:focus{border-color:var(--dsw-alias-brand-primary,#3b6cf6)}
+.am-overlay{position:fixed;inset:0;background:rgba(8,10,14,.55);display:flex;align-items:center;justify-content:center;z-index:40;padding:24px}
+.am-modal{width:min(640px,94vw);max-height:90vh;overflow:auto;background:var(--dsw-alias-bg-layer-2,var(--dsw-alias-bg-layer-1,#f6f7f8));
+  border:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28));border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.25);padding:16px 18px 18px}
+.am-modal h2{margin:0 0 8px;font-size:15px}
+.am-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 `;
 
 // ── rail glyph ─────────────────────────────────────────────────────────────
@@ -193,6 +271,129 @@ function PanelView(props) {
 
 const inject = ["slots", "locale", "connection"];
 
+
+// ── new-session draft (plugin-owned; not a public DSH API) ─────────────────
+// skills-deck uses storeOf(sid).incomingDraft + inputActions.setDraft. We
+// keep our own map so we do not depend on that plugin being installed.
+const incomingDrafts = new Map();
+
+function mountDraft(sid, text) {
+  if (sid && text) incomingDrafts.set(String(sid), text);
+}
+
+function consumeDraft(sid) {
+  const key = String(sid || "");
+  const text = incomingDrafts.get(key);
+  if (text) incomingDrafts.delete(key);
+  return text || "";
+}
+
+function DraftApplier(props) {
+  const consumed = React.useRef(null);
+  React.useEffect(() => {
+    const sid = props && props.sessionId;
+    const setDraft = props && props.inputActions && props.inputActions.setDraft;
+    if (!sid || typeof setDraft !== "function") return;
+    if (consumed.current === sid) return;
+    const text = consumeDraft(sid);
+    if (!text) return;
+    consumed.current = sid;
+    setDraft(text.endsWith("\n") ? text : text + "\n");
+  }, [props && props.sessionId, props && props.inputActions]);
+  return null;
+}
+
+function currentSessionCwd(ctx) {
+  try {
+    const sessions = ctx.get && ctx.get("sessions");
+    const snap = sessions && sessions.list && typeof sessions.list.getSnapshot === "function" && sessions.list.getSnapshot();
+    const currentId = (snap && (snap.currentId || snap.activeId || snap.selectedId)) || "";
+    if (currentId && snap.byId && snap.byId[currentId] && snap.byId[currentId].cwd) return snap.byId[currentId].cwd;
+    if (snap && snap.cwd) return snap.cwd;
+  } catch (error) { /* host surface varies */ }
+  return "";
+}
+
+function inheritPreset(ctx) {
+  try {
+    const sessions = ctx.get && ctx.get("sessions");
+    const snap = sessions && sessions.list && typeof sessions.list.getSnapshot === "function" && sessions.list.getSnapshot();
+    const currentId = snap && (snap.currentId || snap.activeId || snap.selectedId);
+    const row = currentId && snap.byId ? snap.byId[currentId] : null;
+    if (!row) return "";
+    if (row.projectionValues && typeof row.projectionValues.agentPreset === "string") return row.projectionValues.agentPreset;
+    if (row.header && typeof row.header.agentPreset === "string") return row.header.agentPreset;
+    if (typeof row.agentPreset === "string") return row.agentPreset;
+  } catch (error) { /* optional */ }
+  return "";
+}
+
+function buildCreateOpts(workspaceId, cwd, preset) {
+  const opts = workspaceId ? { workspaceId } : { cwd };
+  if (preset) opts.agentPreset = preset;
+  return opts;
+}
+
+async function resolveWorkspaceId(ctx, cwd) {
+  try {
+    const workspaces = ctx.get && ctx.get("workspaces");
+    if (!workspaces || !cwd) return null;
+    const snap = workspaces.list && (typeof workspaces.list.getSnapshot === "function" ? workspaces.list.getSnapshot() : null);
+    const items = [];
+    if (snap) {
+      const rows = Array.isArray(snap) ? snap : Object.values(snap.byId || snap.workspaces || snap.items || {});
+      for (const row of rows) if (row && typeof row === "object") items.push(row);
+    }
+    const want = String(cwd).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    for (const row of items) {
+      const rowCwd = String(row.cwd || row.path || row.workingDirectory || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+      if (rowCwd && rowCwd === want) return row.workspaceId || row.id || row.workspace_id || null;
+    }
+  } catch (error) { /* optional */ }
+  return null;
+}
+
+async function createAndPrefill(ctx, { cwd, text, preset }) {
+  const sessions = ctx.get && ctx.get("sessions");
+  if (!sessions || typeof sessions.create !== "function") throw new Error("sessions.create is not available on this host");
+  const workspaceId = await resolveWorkspaceId(ctx, cwd);
+  const inherited = preset || inheritPreset(ctx) || "";
+  const attempt = async (opts) => {
+    const sid = await Promise.resolve(sessions.create(opts));
+    if (sid) mountDraft(sid, text);
+    return sid;
+  };
+  let sid;
+  try {
+    sid = await attempt(buildCreateOpts(workspaceId, cwd, inherited));
+  } catch (error) {
+    const msg = String((error && error.message) || error || "");
+    if (workspaceId && /workspaceId|workspace/i.test(msg)) {
+      sid = await attempt(buildCreateOpts(null, cwd, inherited));
+    } else if (inherited && /agentPreset|preset/i.test(msg)) {
+      const keys = ["presetId", "agentPresetId", "preset"];
+      let last = error;
+      for (const key of keys) {
+        try {
+          const opts = workspaceId ? { workspaceId, [key]: inherited } : { cwd, [key]: inherited };
+          sid = await attempt(opts);
+          last = null;
+          break;
+        } catch (inner) {
+          last = inner;
+        }
+      }
+      if (last) sid = await attempt(workspaceId ? { workspaceId } : { cwd });
+    } else {
+      throw error;
+    }
+  }
+  const ui = (ctx.get && (ctx.get("uiWorkspace") || ctx.uiWorkspace)) || null;
+  if (ui && typeof ui.openSession === "function") await ui.openSession(sid);
+  else if (typeof sessions.open === "function") await sessions.open(sid);
+  return sid;
+}
+
 function apply(ctx) {
   const t = ctx.locale.bind(NS);
   ctx.effect(() => ctx.locale.register(NS, { en, zh }), "ai-memory: dictionaries");
@@ -212,12 +413,24 @@ function apply(ctx) {
     return result.value;
   };
 
+  const host = {
+    currentCwd: () => currentSessionCwd(ctx),
+    openSession: (opts) => createAndPrefill(ctx, opts),
+  };
+
+  // Apply a prefilled composer draft once the new session's input mounts.
+  ctx.effect(() => ctx.slots.inject("conversation.input.dock", () => ctx.slots.register({
+    name: "conversation.input.dock",
+    id: "dsh-plugin-ai-memory",
+    order: 10,
+  }, DraftApplier)), "ai-memory: draft dock");
+
   // The page in the layout's keyed `main` slot (chunk loads on first open).
   ctx.effect(() => ctx.slots.inject("main", () => ctx.slots.register({
     name: "main",
     key: PANEL_ID,
     locale: NS,
-    inject: () => ({ api, t }),
+    inject: () => ({ api, t, host }),
   }, PanelView)), "ai-memory: main panel");
 
   // The rail icon in the sidebar's global panel list. Same id as the main key.

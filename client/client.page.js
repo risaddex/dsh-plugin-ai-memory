@@ -28,7 +28,8 @@ function Field({ id, label, hint, children }) {
 const timeOf = (at) => (at ? new Date(at).toLocaleTimeString() : "");
 
 // ── the panel page ─────────────────────────────────────────────────────────
-function MemoryPanel({ api, t }) {
+function MemoryPanel(props) {
+  const { api, t, host } = props;
   const [status, setStatus] = React.useState(null);
   const [form, setForm] = React.useState(null);
   const [busy, setBusy] = React.useState("");
@@ -36,6 +37,13 @@ function MemoryPanel({ api, t }) {
   const [marker, setMarker] = React.useState({ dir: "", overwrite: false });
   const [workstreams, setWorkstreams] = React.useState(null);
   const [consolidate, setConsolidate] = React.useState({ sessionId: "" });
+  const [tab, setTab] = React.useState("inbox");
+  const [inbox, setInbox] = React.useState(null);
+  const [inboxBusy, setInboxBusy] = React.useState(false);
+  const [composer, setComposer] = React.useState(null);
+  const [cancelRow, setCancelRow] = React.useState(null);
+  const [mapRow, setMapRow] = React.useState(null);
+  const [mapDir, setMapDir] = React.useState("");
 
   const load = React.useCallback(async () => {
     try {
@@ -54,6 +62,8 @@ function MemoryPanel({ api, t }) {
         reportUsage: value.config.reportUsage,
         messagingGuidance: value.config.messagingGuidance,
         mcpServerName: value.config.mcpServerName,
+        defaultAgentPreset: value.config.defaultAgentPreset || "",
+        repoRootsText: Array.isArray(value.config.repoRoots) ? value.config.repoRoots.join("\n") : "",
       });
     } catch (error) {
       setFlash({ ok: false, text: String(error.message || error) });
@@ -61,6 +71,69 @@ function MemoryPanel({ api, t }) {
   }, [api]);
 
   React.useEffect(() => { void load(); }, [load]);
+
+  const currentCwd = () => {
+    try {
+      return (props.host && typeof props.host.currentCwd === "function" && props.host.currentCwd()) || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const loadInbox = React.useCallback(async () => {
+    setInboxBusy(true);
+    try {
+      const value = await api("listInbox", { cwd: currentCwd() });
+      setInbox(value);
+    } catch (error) {
+      setFlash({ ok: false, text: String(error.message || error) });
+    } finally {
+      setInboxBusy(false);
+    }
+  }, [api]);
+
+  React.useEffect(() => { void loadInbox(); }, [loadInbox]);
+  React.useEffect(() => {
+    const timer = setInterval(() => { void loadInbox(); }, 20000);
+    return () => clearInterval(timer);
+  }, [loadInbox]);
+
+  const formatTime = (value) => {
+    if (!value) return "";
+    try {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date) + " (BRT)";
+    } catch {
+      return String(value);
+    }
+  };
+
+  const openAgent = async (row) => {
+    if (!row || !row.mappedPath) return;
+    if (!props.host || typeof props.host.openSession !== "function") {
+      setFlash({ ok: false, text: t("inbox.noSessions") });
+      return;
+    }
+    try {
+      const preset = (form && form.defaultAgentPreset) || (status && status.config && status.config.defaultAgentPreset) || "";
+      await props.host.openSession({
+        cwd: row.mappedPath,
+        text: row.openPrompt,
+        preset,
+      });
+      setFlash({ ok: true, text: t("inbox.opened") });
+    } catch (error) {
+      setFlash({ ok: false, text: String(error.message || error) });
+    }
+  };
   // Cheap liveness: the rail can stay open for hours.
   React.useEffect(() => {
     const timer = setInterval(() => { void load(); }, 15000);
@@ -169,16 +242,263 @@ function isStatusDocument(value) {
       `${t("status.mcp")}: ${status.mcp && status.mcp.managed ? t("status.mcpOn") : t("status.mcpOff")}`),
   ];
 
+
+  const grouped = () => {
+    const groups = [];
+    const index = new Map();
+    for (const row of (inbox && inbox.messages) || []) {
+      const ws = row.to_workspace || "?";
+      if (!index.has(ws)) {
+        const g = { workspace: ws, projects: new Map() };
+        index.set(ws, g);
+        groups.push(g);
+      }
+      const g = index.get(ws);
+      const pr = row.to_project || "?";
+      if (!g.projects.has(pr)) g.projects.set(pr, []);
+      g.projects.get(pr).push(row);
+    }
+    return groups;
+  };
+
+  const renderInbox = () => {
+    const current = (inbox && inbox.current) || {};
+    const currentLabel = current.workspace && current.project
+      ? `${current.workspace} / ${current.project}`
+      : t("inbox.noMarker");
+    const groups = grouped();
+    return h(React.Fragment, { key: "inbox-pane" }, [
+      h("div", { key: "ctx", className: "am-context" }, [
+        h("div", { key: "l" }, [
+          t("inbox.currentSession"),
+          " ",
+          h("code", { key: "c" }, currentLabel),
+        ]),
+        h("button", { key: "n", className: "am-btn primary", type: "button", onClick: () => setComposer({
+          from_workspace: current.workspace || "",
+          from_project: current.project || "",
+          to_workspace: current.workspace || "",
+          to_project: "",
+          subject: "",
+          body: "",
+          nature: "reported",
+          evidence: "",
+        }) }, t("inbox.newHandoff")),
+      ]),
+      h("section", { key: "list", className: "am-card" }, [
+        h("h3", { key: "h" }, `${t("inbox.pending")} · ${((inbox && inbox.pending) || 0)}`),
+        inboxBusy && !inbox ? h("p", { key: "l", className: "am-empty" }, t("inbox.loading")) : null,
+        inbox && groups.length === 0 ? h("p", { key: "e", className: "am-empty" }, t("inbox.empty")) : null,
+        ...groups.map((group) => h("div", { key: `g-${group.workspace}`, className: "am-group" }, [
+          h("div", { key: "gh", className: "am-group-h" }, [
+            "workspace ",
+            h("strong", { key: "s" }, group.workspace),
+            " · " + String(Array.from(group.projects.values()).reduce((n, a) => n + a.length, 0)),
+          ]),
+          ...Array.from(group.projects.entries()).flatMap(([project, rows]) => [
+            h("div", { key: `ph-${group.workspace}-${project}`, className: "am-group-h" }, ["projeto ", h("code", { key: "c" }, project)]),
+            ...rows.map((row) => h("div", { key: row.id, className: "am-msg" + (row.mappedPath ? "" : " unmapped") }, [
+              h("div", { key: "m", className: "am-msg-main" }, [
+                h("p", { key: "t", className: "am-msg-title" }, row.subject || t("inbox.noSubject")),
+                h("p", { key: "meta", className: "am-msg-meta" }, [
+                  t("inbox.from"),
+                  " ",
+                  h("code", { key: "f" }, `${row.from_workspace || "?"}/${row.from_project || "?"}`),
+                  h("span", { key: "s", className: "sep" }, "·"),
+                  h("span", { key: "tm" }, formatTime(row.created_at)),
+                  row.from_workspace && row.to_workspace === row.from_workspace && row.to_project === row.from_project
+                    ? h("span", { key: "p", className: "am-pill" }, t("inbox.sameProject"))
+                    : null,
+                ]),
+              ]),
+              h("div", { key: "a", className: "am-msg-actions" }, [
+                h("button", {
+                  key: "open", className: "am-btn primary", type: "button",
+                  disabled: !row.mappedPath, title: row.mappedPath ? "" : t("inbox.noCheckout"),
+                  onClick: () => openAgent(row),
+                }, t("inbox.openAgent")),
+                row.mappedPath ? null : h("button", {
+                  key: "map", className: "am-btn", type: "button",
+                  onClick: () => { setMapRow(row); setMapDir(""); },
+                }, t("inbox.mapProject")),
+                row.canCancel ? h("button", {
+                  key: "c", className: "am-btn danger", type: "button",
+                  onClick: () => setCancelRow(row),
+                }, t("inbox.cancel")) : null,
+              ]),
+            ])),
+          ]),
+        ])),
+      ]),
+      h("section", { key: "map", className: "am-card" }, [
+        h("h3", { key: "h" }, t("inbox.mapTitle")),
+        h("table", { key: "t", className: "am-map-table" }, [
+          h("thead", { key: "h" }, h("tr", null, [
+            h("th", { key: "p" }, t("inbox.mapScope")),
+            h("th", { key: "c" }, t("inbox.mapPath")),
+          ])),
+          h("tbody", { key: "b" }, ((inbox && inbox.map) || []).map((row) => h("tr", { key: row.key }, [
+            h("td", { key: "p" }, [
+              h("code", { key: "c" }, row.key),
+              current.workspace && row.workspace === current.workspace && row.project === current.project
+                ? h("span", { key: "n", className: "am-pill" }, t("inbox.currentPill"))
+                : null,
+            ]),
+            h("td", { key: "c" }, row.path
+              ? h("code", null, row.path)
+              : h("span", { style: { color: "var(--dsw-alias-state-warn-primary,#d29922)" } }, t("inbox.noCheckout"))),
+          ]))),
+        ]),
+      ]),
+      composer ? renderComposer() : null,
+      cancelRow ? renderCancel() : null,
+      mapRow ? renderMapModal() : null,
+    ]);
+  };
+
+  const modalShell = (title, children, actions) => h("div", { className: "am-overlay", onClick: (event) => {
+    if (event.target === event.currentTarget) { setComposer(null); setCancelRow(null); setMapRow(null); }
+  } }, h("div", { className: "am-modal", role: "dialog" }, [
+    h("h2", { key: "t" }, title),
+    ...children,
+    h("div", { key: "a", className: "am-modal-actions" }, actions),
+  ]));
+
+  const renderComposer = () => {
+    const set = (key) => (event) => setComposer({ ...composer, [key]: event.target.value });
+    const scopes = Array.from(new Set(((inbox && inbox.scopes) || []).map((s) => s.workspace))).filter(Boolean);
+    const projects = ((inbox && inbox.scopes) || []).filter((s) => s.workspace === composer.to_workspace).map((s) => s.project);
+    return modalShell(t("inbox.newHandoff"), [
+      h("p", { key: "hint", className: "am-hint" }, t("inbox.composerHint")),
+      h("div", { key: "g", className: "am-grid" }, [
+        h("div", { key: "fw", className: "am-row" }, [
+          h("label", { key: "l" }, "from_workspace"),
+          h("input", { key: "i", className: "am-in mono", value: composer.from_workspace, readOnly: true }),
+          h("p", { key: "h", className: "am-hint" }, t("inbox.fromMarker")),
+        ]),
+        h("div", { key: "fp", className: "am-row" }, [
+          h("label", { key: "l" }, "from_project"),
+          h("input", { key: "i", className: "am-in mono", value: composer.from_project, readOnly: true }),
+        ]),
+        h("div", { key: "tw", className: "am-row" }, [
+          h("label", { key: "l" }, "to_workspace"),
+          h("select", { key: "s", className: "am-sel", value: composer.to_workspace, onChange: set("to_workspace") },
+            (scopes.length ? scopes : [composer.to_workspace]).filter(Boolean).map((w) => h("option", { key: w, value: w }, w))),
+        ]),
+        h("div", { key: "tp", className: "am-row" }, [
+          h("label", { key: "l" }, "to_project"),
+          h("select", { key: "s", className: "am-sel", value: composer.to_project, onChange: set("to_project") },
+            ["", ...projects].map((pr) => h("option", { key: pr || "empty", value: pr }, pr || "—"))),
+        ]),
+      ]),
+      h("div", { key: "s", className: "am-row" }, [
+        h("label", { key: "l" }, t("inbox.subject")),
+        h("input", { key: "i", className: "am-in", value: composer.subject, onChange: set("subject") }),
+      ]),
+      h("div", { key: "b", className: "am-row" }, [
+        h("label", { key: "l" }, t("inbox.body")),
+        h("textarea", { key: "t", className: "am-ta", value: composer.body, onChange: set("body") }),
+      ]),
+      h("div", { key: "n", className: "am-row", style: { maxWidth: 240 } }, [
+        h("label", { key: "l" }, "nature"),
+        h("select", { key: "s", className: "am-sel", value: composer.nature, onChange: set("nature") }, [
+          h("option", { key: "r", value: "reported" }, "reported"),
+          h("option", { key: "m", value: "measured" }, "measured"),
+          h("option", { key: "i", value: "inferred" }, "inferred"),
+        ]),
+      ]),
+      composer.nature === "measured" ? h("div", { key: "e", className: "am-row" }, [
+        h("label", { key: "l" }, "evidence"),
+        h("input", { key: "i", className: "am-in", value: composer.evidence, onChange: set("evidence") }),
+      ]) : null,
+    ], [
+      h("button", { key: "c", className: "am-btn", type: "button", onClick: () => setComposer(null) }, t("inbox.close")),
+      h("button", { key: "s", className: "am-btn primary", type: "button", disabled: busy !== "", onClick: async () => {
+        const value = await run("send", "sendMessage", composer);
+        if (value) {
+          setFlash({ ok: true, text: t("inbox.sent") });
+          setComposer(null);
+          await loadInbox();
+        }
+      } }, t("inbox.send")),
+    ]);
+  };
+
+  const renderCancel = () => modalShell(t("inbox.cancelTitle"), [
+    h("p", { key: "h", className: "am-hint" }, t("inbox.cancelConfirmPrefix") + " “" + (cancelRow.subject || t("inbox.noSubject")) + "” " + t("inbox.cancelConfirmMid") + " " + cancelRow.to_workspace + "/" + cancelRow.to_project + "? " + t("inbox.cancelConfirmSuffix")),
+  ], [
+    h("button", { key: "b", className: "am-btn", type: "button", onClick: () => setCancelRow(null) }, t("inbox.back")),
+    h("button", { key: "c", className: "am-btn danger", type: "button", disabled: busy !== "", onClick: async () => {
+      const value = await run("cancel", "cancelMessage", {
+        message_id: cancelRow.id,
+        workspace: cancelRow.from_workspace,
+        project: cancelRow.from_project,
+        cwd: currentCwd(),
+      });
+      if (value) {
+        setFlash({ ok: true, text: t("inbox.cancelled") });
+        setCancelRow(null);
+        await loadInbox();
+      }
+    } }, t("inbox.retract")),
+  ]);
+
+  const renderMapModal = () => modalShell(t("inbox.mapProject"), [
+    h("p", { key: "h", className: "am-hint" }, t("inbox.mapHint")),
+    h("div", { key: "p", className: "am-row" }, [
+      h("label", { key: "l" }, t("inbox.mapScope")),
+      h("input", { key: "i", className: "am-in mono", readOnly: true, value: `${mapRow.to_workspace}/${mapRow.to_project}` }),
+    ]),
+    h("div", { key: "d", className: "am-row" }, [
+      h("label", { key: "l" }, t("inbox.mapDir")),
+      h("input", { key: "i", className: "am-in mono", value: mapDir, placeholder: "/caminho/do/checkout", onChange: (e) => setMapDir(e.target.value) }),
+    ]),
+  ], [
+    h("button", { key: "c", className: "am-btn", type: "button", onClick: () => setMapRow(null) }, t("inbox.close")),
+    h("button", { key: "s", className: "am-btn primary", type: "button", disabled: busy !== "" || !mapDir.trim(), onClick: async () => {
+      const value = await run("map", "mapProject", {
+        workspace: mapRow.to_workspace,
+        project: mapRow.to_project,
+        dir: mapDir.trim(),
+        writeMarker: true,
+        overwrite: true,
+      });
+      if (value) {
+        setFlash({ ok: true, text: t("inbox.mapped") });
+        setMapRow(null);
+        await loadInbox();
+      }
+    } }, t("inbox.saveMap")),
+  ]);
+
   return h("div", { className: "am-root" }, [
     h("div", { key: "head", className: "am-head" }, [
       h("h2", { key: "t", className: "am-title" }, t("panel.title")),
       h("span", { key: "v", className: "am-empty" }, `v${status.version}`),
     ]),
     h("p", { key: "sub", className: "am-sub" }, t("panel.subtitle")),
-    h("div", { key: "chips", className: "am-chips" }, chips),
+    h("div", { key: "chips", className: "am-chips", hidden: tab === "inbox" }, chips),
+
+    h("div", { key: "tabs", className: "am-tabs", role: "tablist" }, [
+      h("button", {
+        key: "c", className: "am-tab", role: "tab", type: "button",
+        "aria-selected": tab === "config" ? "true" : "false",
+        onClick: () => setTab("config"),
+      }, t("tab.config")),
+      h("button", {
+        key: "i", className: "am-tab", role: "tab", type: "button",
+        "aria-selected": tab === "inbox" ? "true" : "false",
+        onClick: () => setTab("inbox"),
+      }, [
+        t("tab.inbox"),
+        h("span", { key: "b", className: "am-badge" }, String((inbox && inbox.pending) || 0)),
+      ]),
+    ]),
+
+    tab === "inbox" ? renderInbox() : null,
 
     // Server / workstream
-    h("section", { key: "server", className: "am-card" }, [
+    h("section", { key: "server", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.server")),
       h("div", { className: "am-grid" }, [
         h(Field, { key: "url", id: "am-server", label: t("field.serverUrl"), hint: t("field.serverUrl.hint") },
@@ -221,7 +541,7 @@ function isStatusDocument(value) {
     ]),
 
     // Capture
-    h("section", { key: "capture", className: "am-card" }, [
+    h("section", { key: "capture", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.capture")),
       h("label", { key: "en", className: "am-check" }, [
         h("input", { key: "i", type: "checkbox", checked: Boolean(form.enabled), onChange: set("enabled") }),
@@ -259,7 +579,7 @@ function isStatusDocument(value) {
     ]),
 
     // MCP
-    h("section", { key: "mcp", className: "am-card" }, [
+    h("section", { key: "mcp", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.mcp")),
       h("label", { key: "m", className: "am-check" }, [
         h("input", { key: "i", type: "checkbox", checked: Boolean(form.mcp), onChange: set("mcp") }),
@@ -288,7 +608,7 @@ function isStatusDocument(value) {
     ]),
 
     // Consolidation
-    h("section", { key: "consolidate", className: "am-card" }, [
+    h("section", { key: "consolidate", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.consolidate")),
       h(Field, { key: "sid", id: "am-sid", label: t("field.sessionId"), hint: t("field.sessionId.hint") },
         h("input", {
@@ -309,7 +629,7 @@ function isStatusDocument(value) {
     ]),
 
     // Project marker
-    h("section", { key: "marker", className: "am-card" }, [
+    h("section", { key: "marker", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.marker")),
       h("div", { className: "am-grid" }, [
         h(Field, { key: "d", id: "am-mdir", label: t("field.marker.dir"), hint: t("field.marker.hint") },
@@ -352,7 +672,7 @@ function isStatusDocument(value) {
     ]),
 
     // Activity
-    h("section", { key: "activity", className: "am-card" }, [
+    h("section", { key: "activity", className: "am-card", hidden: tab !== "config" }, [
       h("h3", { key: "h" }, t("section.activity")),
       (status.recentEvents || []).length === 0
         ? h("p", { key: "e", className: "am-empty" }, t("event.none"))

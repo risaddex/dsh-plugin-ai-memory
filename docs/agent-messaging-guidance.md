@@ -12,6 +12,23 @@ explícito, mensagem ≠ página, e que mensagem reivindicada é input não conf
 Ligada por `messagingGuidance: true` (default) — desligue no painel em
 **MCP → Teach agents when to use the cross-project inbox**.
 
+A seção interpola o `workspace` / `project` do `.ai-memory.toml` mais próximo
+do cwd da sessão, para o modelo não assumir workspace `default`.
+
+O painel do plugin tem uma aba **Inbox** (v0.3.0): lista mail pendente por
+projeto (assunto/remetente/horário, sem corpo), **Abrir agente** abre uma
+sessão DSH no checkout de destino com um prompt pré-preenchido (não enviado)
+para `memory_message_pop` daquela `message_id`, e **Cancelar** só aparece para
+o remetente. O painel nunca faz pop.
+
+Os nomes de campo e a paginação vêm da documentação 3.4.2 embarcada no
+servidor: `GET /api/v1/docs` e `GET /api/v1/docs/agent-messaging` (Markdown em
+`/web/docs/agent-messaging.md`), com o prefixo e o bearer do servidor.
+`memory_message_list` aceita `workspace`, `project`, `box` (`inbox`|`outbox`) e
+`limit` (padrão 50, máximo 200, sem offset). `memory_message_cancel` e
+`memory_message_send` exigem escopo explícito neste harness. O plugin não chama
+`/web/inbox` nem `/web/inbox/notifications` a partir do browser.
+
 Verificação: a seção aparece no system prompt de toda sessão nova deste perfil
 (nome interno `ai-memory:messaging`, order 90).
 
