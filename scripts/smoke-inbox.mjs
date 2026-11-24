@@ -15,6 +15,7 @@ export async function runInboxChecks({ api, check, ROOT }) {
   // 15. resolve from a subdirectory cwd through the ancestor marker.
   const repoB = join(ROOT, 'repo-b')
   mkdirSync(join(repoB, 'src'), { recursive: true })
+  mkdirSync(join(repoB, '.git'))
   writeFileSync(join(repoB, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-app"\n')
   const fromSub = projectMap.resolveProjectPath({ projectPathMap: {}, repoRoots: [] }, 'acme', 'acme-app', [join(repoB, 'src')])
   check('resolveProjectPath finds ancestor marker from a subdirectory cwd', fromSub.path === repoB && fromSub.source === 'marker', JSON.stringify({ path: fromSub.path, source: fromSub.source }))
@@ -32,6 +33,7 @@ export async function runInboxChecks({ api, check, ROOT }) {
   // 18. A capture-only nested marker is transparent for scope resolution.
   const capRepo = join(ROOT, 'repo-cap')
   mkdirSync(join(capRepo, 'pkg'), { recursive: true })
+  mkdirSync(join(capRepo, '.git'))
   writeFileSync(join(capRepo, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-core"\n')
   writeFileSync(join(capRepo, 'pkg', '.ai-memory.toml'), '[capture]\ndrop_subagent_captures = true\n')
   const capScope = projectMap.findMarker(join(capRepo, 'pkg'))

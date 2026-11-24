@@ -215,6 +215,7 @@ const { guidanceText } = await import('../lib/prompt.js')
 
 const markerDir = join(ROOT, 'repo-a')
 mkdirSync(markerDir, { recursive: true })
+mkdirSync(join(markerDir, '.git')) // a repo root: the hook's walk stops there
 writeFileSync(join(markerDir, '.ai-memory.toml'), 'workspace = "guedder"\nproject = "guedder-guedder-api"\n')
 const parsed = projectMap.parseMarker(join(markerDir, '.ai-memory.toml'))
 check('parseMarker reads workspace/project', parsed.workspace === 'guedder' && parsed.project === 'guedder-guedder-api')
@@ -295,6 +296,8 @@ const { runInboxChecks } = await import('./smoke-inbox.mjs')
 await runInboxChecks({ api, check, ROOT })
 const { runServerRoutedChecks } = await import('./smoke-server-routed.mjs')
 await runServerRoutedChecks({ api, check, ROOT })
+const { runMarkerChecks } = await import('./smoke-markers.mjs')
+await runMarkerChecks({ check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
