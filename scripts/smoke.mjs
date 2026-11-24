@@ -305,6 +305,11 @@ const pageSource = readFileSync(new URL('../client/client.page.js', import.meta.
 check('to_workspace change clears to_project', /to_workspace: event\.target\.value, to_project: ""/.test(pageSource))
 check('send requires a listed recipient', /!projects\.includes\(composer\.to_project\)/.test(pageSource))
 
+// 17. Workspace-to-cwd matching keeps case (App and app are distinct checkouts).
+const clientSource = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8')
+const resolverBody = clientSource.slice(clientSource.indexOf('async function resolveWorkspaceId'), clientSource.indexOf('async function createAndPrefill'))
+check('resolveWorkspaceId does not lowercase paths', resolverBody.length > 0 && !/toLowerCase/.test(resolverBody))
+
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
 console.log(failed.length === 0 ? '\nSMOKE OK' : `\n${failed.length} FAILED`)

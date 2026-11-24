@@ -344,9 +344,12 @@ async function resolveWorkspaceId(ctx, cwd) {
       const rows = Array.isArray(snap) ? snap : Object.values(snap.byId || snap.workspaces || snap.items || {});
       for (const row of rows) if (row && typeof row === "object") items.push(row);
     }
-    const want = String(cwd).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+    // Exact, case-sensitive match only: /repos/App and /repos/app are distinct
+    // checkouts on case-sensitive filesystems. No match returns null, and the
+    // caller then opens by cwd.
+    const want = String(cwd).replace(/\\/g, "/").replace(/\/+$/, "");
     for (const row of items) {
-      const rowCwd = String(row.cwd || row.path || row.workingDirectory || "").replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+      const rowCwd = String(row.cwd || row.path || row.workingDirectory || "").replace(/\\/g, "/").replace(/\/+$/, "");
       if (rowCwd && rowCwd === want) return row.workspaceId || row.id || row.workspace_id || null;
     }
   } catch (error) { /* optional */ }
