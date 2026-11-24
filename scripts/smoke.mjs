@@ -310,6 +310,20 @@ const clientSource = readFileSync(new URL('../client/client.js', import.meta.url
 const resolverBody = clientSource.slice(clientSource.indexOf('async function resolveWorkspaceId'), clientSource.indexOf('async function createAndPrefill'))
 check('resolveWorkspaceId does not lowercase paths', resolverBody.length > 0 && !/toLowerCase/.test(resolverBody))
 
+// 18. A capture-only nested marker is transparent for scope resolution.
+const capRepo = join(ROOT, 'repo-cap')
+mkdirSync(join(capRepo, 'pkg'), { recursive: true })
+writeFileSync(join(capRepo, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-core"\n')
+writeFileSync(join(capRepo, 'pkg', '.ai-memory.toml'), '[capture]\ndrop_subagent_captures = true\n')
+const capScope = projectMap.findMarker(join(capRepo, 'pkg'))
+check('capture-only nested marker keeps the ancestor scope', capScope.workspace === 'acme' && capScope.project === 'acme-core', JSON.stringify(capScope))
+
+// 19. Inbox failures and truncation are rendered, not shown as an empty inbox.
+const pageForErrors = readFileSync(new URL('../client/client.page.js', import.meta.url), 'utf8')
+check('inbox renders listInbox errors', /inboxProblems/.test(pageForErrors) && /errors\.map/.test(pageForErrors))
+check('inbox distinguishes unavailable from empty', /inbox\.unavailable/.test(pageForErrors) && /inbox\.empty/.test(pageForErrors))
+check('RPC failure does not keep the previous list', /failed: message, messages: \[\]/.test(pageForErrors))
+
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
 console.log(failed.length === 0 ? '\nSMOKE OK' : `\n${failed.length} FAILED`)

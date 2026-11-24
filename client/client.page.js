@@ -86,7 +86,10 @@ function MemoryPanel(props) {
       const value = await api("listInbox", { cwd: currentCwd() });
       setInbox(value);
     } catch (error) {
-      setFlash({ ok: false, text: String(error.message || error) });
+      const message = String(error.message || error);
+      setFlash({ ok: false, text: message });
+      // Host RPC failed: do not keep the previous list as if it were current.
+      setInbox({ failed: message, messages: [], pending: 0, errors: [], scopes: [], current: {}, map: [] });
     } finally {
       setInboxBusy(false);
     }
@@ -267,6 +270,11 @@ function isStatusDocument(value) {
       ? `${current.workspace} / ${current.project}`
       : t("inbox.noMarker");
     const groups = grouped();
+    const errors = (inbox && inbox.errors) || [];
+    const problemLines = inbox && inbox.failed
+      ? [t("inbox.failed") + " " + inbox.failed]
+      : errors.map((e) => `${e.box || "inbox"} ${e.workspace || "?"}/${e.project || "?"}: ${e.error}`);
+    const inboxProblems = problemLines.length > 0;
     return h(React.Fragment, { key: "inbox-pane" }, [
       h("div", { key: "ctx", className: "am-context" }, [
         h("div", { key: "l" }, [
@@ -288,7 +296,12 @@ function isStatusDocument(value) {
       h("section", { key: "list", className: "am-card" }, [
         h("h3", { key: "h" }, `${t("inbox.pending")} · ${((inbox && inbox.pending) || 0)}`),
         inboxBusy && !inbox ? h("p", { key: "l", className: "am-empty" }, t("inbox.loading")) : null,
-        inbox && groups.length === 0 ? h("p", { key: "e", className: "am-empty" }, t("inbox.empty")) : null,
+        inboxProblems ? h("div", { key: "w", className: "am-warn" }, [
+          h("p", { key: "t", className: "am-warn-title" }, t("inbox.partial")),
+          ...problemLines.map((line, index) => h("p", { key: `p-${index}`, className: "am-warn-line" }, line)),
+        ]) : null,
+        inbox && !inboxProblems && groups.length === 0 ? h("p", { key: "e", className: "am-empty" }, t("inbox.empty")) : null,
+        inbox && inboxProblems && groups.length === 0 ? h("p", { key: "u", className: "am-empty" }, t("inbox.unavailable")) : null,
         ...groups.map((group) => h("div", { key: `g-${group.workspace}`, className: "am-group" }, [
           h("div", { key: "gh", className: "am-group-h" }, [
             "workspace ",

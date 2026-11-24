@@ -132,6 +132,9 @@ const en = {
   "inbox.mapDir": "Caminho local",
   "inbox.saveMap": "Salvar mapa e marker",
   "inbox.mapped": "Projeto mapeado.",
+  "inbox.partial": "Atualização incompleta: algumas caixas não foram lidas ou estão truncadas.",
+  "inbox.failed": "Falha ao consultar a caixa de entrada:",
+  "inbox.unavailable": "Não foi possível consultar as caixas. Sem resposta não dá para afirmar que não há mensagens.",
 };
 
 const zh = { ...en, "panel.label": "AI 记忆", "panel.title": "AI 记忆" };
@@ -182,6 +185,9 @@ const css = `
 .am-list-row{display:grid;grid-template-columns:74px 1fr auto;gap:8px;padding:2px 0;
   border-bottom:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.16))}
 .am-empty{color:var(--dsw-alias-label-secondary,#59636e);font-size:12px}
+.am-warn{margin:0 0 10px;padding:8px 10px;border:1px solid rgba(154,103,0,.45);border-radius:7px;background:rgba(210,153,34,.08);font-size:12px}
+.am-warn-title{margin:0 0 4px;font-weight:600}
+.am-warn-line{margin:0;font-family:var(--ds-font-family-code,ui-monospace,monospace);font-size:11px;word-break:break-word}
 
 .am-tabs{display:flex;gap:2px;margin:0 0 16px;border-bottom:1px solid var(--dsw-alias-border-l1,rgba(128,128,128,.28))}
 .am-tab{appearance:none;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--dsw-alias-label-secondary,#59636e);
