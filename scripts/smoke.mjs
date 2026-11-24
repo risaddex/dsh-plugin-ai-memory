@@ -274,6 +274,22 @@ check('listInbox strips body for the panel', listed.messages[0].body === undefin
 check('listInbox canCancel when current marker is the sender', listed.messages[0].canCancel === true)
 check('listInbox uses max 3.4.2 page size', inbox.LIST_LIMIT_MAX === 200)
 
+// 12. RPC adapter calls handlers unbound (registerRpc: handler(payload)).
+// mapProject must not depend on `this`, and must write the marker.
+const detachedMap = api.mapProject
+let detachedOk = false
+let detachedErr = ''
+try {
+  const out = await detachedMap({ workspace: 'guedder', project: 'guedder-guedder-ng', dir: markerDir, writeMarker: true, overwrite: true })
+  detachedOk = out && out.ok === true && out.marker && out.marker.written === true
+} catch (error) { detachedErr = error.message }
+check('mapProject works when called unbound (RPC adapter)', detachedOk, detachedErr)
+
+// 13. status() projects defaultAgentPreset and repoRoots for the panel.
+const statusSource = readFileSync(new URL('../lib/routes.js', import.meta.url), 'utf8')
+check('status config projects defaultAgentPreset', /defaultAgentPreset: config\.defaultAgentPreset/.test(statusSource))
+check('status config projects repoRoots', /repoRoots: config\.repoRoots/.test(statusSource))
+
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
 console.log(failed.length === 0 ? '\nSMOKE OK' : `\n${failed.length} FAILED`)
