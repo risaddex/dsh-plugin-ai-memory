@@ -290,39 +290,9 @@ const statusSource = readFileSync(new URL('../lib/routes.js', import.meta.url), 
 check('status config projects defaultAgentPreset', /defaultAgentPreset: config\.defaultAgentPreset/.test(statusSource))
 check('status config projects repoRoots', /repoRoots: config\.repoRoots/.test(statusSource))
 
-// 14. writeMarker is exposed on the API (Config tab "Write marker" button).
-check('api.writeMarker is exposed', typeof api.writeMarker === 'function')
-
-// 15. resolve from a subdirectory cwd through the ancestor marker.
-const repoB = join(ROOT, 'repo-b')
-mkdirSync(join(repoB, 'src'), { recursive: true })
-writeFileSync(join(repoB, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-app"\n')
-const fromSub = projectMap.resolveProjectPath({ projectPathMap: {}, repoRoots: [] }, 'acme', 'acme-app', [join(repoB, 'src')])
-check('resolveProjectPath finds ancestor marker from a subdirectory cwd', fromSub.path === repoB && fromSub.source === 'marker', JSON.stringify({ path: fromSub.path, source: fromSub.source }))
-
-// 16. composer: recipient reset on workspace change, send requires a listed recipient.
-const pageSource = readFileSync(new URL('../client/client.page.js', import.meta.url), 'utf8')
-check('to_workspace change clears to_project', /to_workspace: event\.target\.value, to_project: ""/.test(pageSource))
-check('send requires a listed recipient', /!projects\.includes\(composer\.to_project\)/.test(pageSource))
-
-// 17. Workspace-to-cwd matching keeps case (App and app are distinct checkouts).
-const clientSource = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8')
-const resolverBody = clientSource.slice(clientSource.indexOf('async function resolveWorkspaceId'), clientSource.indexOf('async function createAndPrefill'))
-check('resolveWorkspaceId does not lowercase paths', resolverBody.length > 0 && !/toLowerCase/.test(resolverBody))
-
-// 18. A capture-only nested marker is transparent for scope resolution.
-const capRepo = join(ROOT, 'repo-cap')
-mkdirSync(join(capRepo, 'pkg'), { recursive: true })
-writeFileSync(join(capRepo, '.ai-memory.toml'), 'workspace = "acme"\nproject = "acme-core"\n')
-writeFileSync(join(capRepo, 'pkg', '.ai-memory.toml'), '[capture]\ndrop_subagent_captures = true\n')
-const capScope = projectMap.findMarker(join(capRepo, 'pkg'))
-check('capture-only nested marker keeps the ancestor scope', capScope.workspace === 'acme' && capScope.project === 'acme-core', JSON.stringify(capScope))
-
-// 19. Inbox failures and truncation are rendered, not shown as an empty inbox.
-const pageForErrors = readFileSync(new URL('../client/client.page.js', import.meta.url), 'utf8')
-check('inbox renders listInbox errors', /inboxProblems/.test(pageForErrors) && /errors\.map/.test(pageForErrors))
-check('inbox distinguishes unavailable from empty', /inbox\.unavailable/.test(pageForErrors) && /inbox\.empty/.test(pageForErrors))
-check('RPC failure does not keep the previous list', /failed: message, messages: \[\]/.test(pageForErrors))
+// 14-21. Inbox and project-map checks live in smoke-inbox.mjs.
+const { runInboxChecks } = await import('./smoke-inbox.mjs')
+await runInboxChecks({ api, check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)

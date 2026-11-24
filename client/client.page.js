@@ -478,7 +478,6 @@ function isStatusDocument(value) {
         project: mapRow.to_project,
         dir: mapDir.trim(),
         writeMarker: true,
-        overwrite: true,
       });
       if (value) {
         setFlash({ ok: true, text: t("inbox.mapped") });
