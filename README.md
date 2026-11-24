@@ -233,7 +233,10 @@ the wiring itself.
   with an explicit `message_id` (omitting it would clear the whole outbox).
   **Novo handoff** sends with explicit `from_*` / `to_*`. Projects without a
   local checkout get **Mapear projeto**, which records `projectPathMap` and can
-  write a marker through the existing `writeMarker` helper.
+  write a marker through the existing `writeMarker` helper. Checkouts whose marker
+  (or an ancestor's) selects a named server (`server = ...`) are not queried: the
+  panel only reads the plugin-wide server, and the hooks fail closed for those
+  checkouts the same way. They show up as a warning instead of an empty inbox.
 
 Field names and pagination follow ai-memory **3.4.2**, confirmed against the
 running server's in-binary catalog: authenticated `GET /api/v1/docs`, then

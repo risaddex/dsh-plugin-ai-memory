@@ -293,6 +293,8 @@ check('status config projects repoRoots', /repoRoots: config\.repoRoots/.test(st
 // 14-21. Inbox and project-map checks live in smoke-inbox.mjs.
 const { runInboxChecks } = await import('./smoke-inbox.mjs')
 await runInboxChecks({ api, check, ROOT })
+const { runServerRoutedChecks } = await import('./smoke-server-routed.mjs')
+await runServerRoutedChecks({ api, check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
