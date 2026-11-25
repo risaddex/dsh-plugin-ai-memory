@@ -300,6 +300,8 @@ const { runMarkerChecks } = await import('./smoke-markers.mjs')
 await runMarkerChecks({ check, ROOT })
 const { runDerivedChecks } = await import('./smoke-derived.mjs')
 await runDerivedChecks({ api, check, ROOT })
+const { runDerivedGitChecks } = await import('./smoke-derived-git.mjs')
+await runDerivedGitChecks({ check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)
