@@ -77,6 +77,18 @@ export async function runDerivedChecks({ check, ROOT }) {
     check('two checkouts with the same basename yield one scope', JSON.stringify(keys(inbox.collectScopes(cfgFor(dup), {}).scopes)) === JSON.stringify(['acme/app']))
     check('deriveRepoScopes keeps both checkouts, shortest-then-alphabetical', pm.deriveRepoScopes(cfgFor(dup), []).map((r) => r.dir).join('|') === [join(dup, 'a', 'app'), join(dup, 'b', 'app')].join('|'))
 
+    // Same pair, but the shortest checkout is server-routed: it must not hide the queryable one.
+    const mixroute = join(work, 'mixroute')
+    marker(join(mixroute, 'a'), 'workspace = "acme"\nserver = "prod"\n')
+    repo(join(mixroute, 'a', 'app'))
+    marker(join(mixroute, 'longer'), 'workspace = "acme"\n')
+    repo(join(mixroute, 'longer', 'app'))
+    const mixScopes = inbox.collectScopes(cfgFor(mixroute), {})
+    check('a server-routed checkout does not hide a plugin-wide one of the same pair', mixScopes.scopes.length === 1 && mixScopes.scopes[0].workspace === 'acme' && mixScopes.scopes[0].project === 'app' && mixScopes.scopes[0].source === 'derivado' && mixScopes.skipped.length === 0, JSON.stringify(mixScopes))
+    calls.length = 0
+    await inbox.listInbox(spy, cfgFor(mixroute), {})
+    check('the plugin-wide checkout of that pair is queried', calls.length > 0, JSON.stringify(calls))
+
     // Derived project missing on the server: empty box. Declared one: still an error.
     const missing = join(work, 'missing')
     marker(missing, 'workspace = "acme"\n')
