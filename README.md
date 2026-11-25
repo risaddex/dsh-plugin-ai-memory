@@ -237,6 +237,21 @@ the wiring itself.
   (or an ancestor's) selects a named server (`server = ...`) are not queried: the
   panel only reads the plugin-wide server, and the hooks fail closed for those
   checkouts the same way. They show up as a warning instead of an empty inbox.
+* **Derived projects** — a marker that declares only `workspace` yields one
+  scope per git repository below it (under `repoRoots` and the known session
+  directories, bounded depth), labelled `derivado`. The project is the basename
+  of the MAIN repo root (`git rev-parse --git-common-dir`, so worktrees share
+  the main repo's name; outside a git work tree it is the directory basename).
+  A `project` declared in a marker always wins, and `server = ...` markers stay
+  unqueried. A derived project missing on the server shows an empty box.
+  **Abrir agente** resolves its checkout with the precedence `projectPathMap`,
+  markers declaring the full pair, then derived; with several checkouts the
+  shortest path is used and all are returned. Deliberately not done: no
+  remote-identity derivation; `project_strategy` / `AI_MEMORY_PROJECT_STRATEGY`
+  are not read (only `repo-root` is assumed); the panel sender (**Cancelar**,
+  **Novo handoff**) does not use the derived project, so **Cancelar** stays
+  hidden in such checkouts; and `lib/prompt.js` still tells agents not to infer
+  the project.
 
 Field names and pagination follow ai-memory **3.4.2**, confirmed against the
 running server's in-binary catalog: authenticated `GET /api/v1/docs`, then
