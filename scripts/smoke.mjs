@@ -304,6 +304,8 @@ const { runDerivedGitChecks } = await import('./smoke-derived-git.mjs')
 await runDerivedGitChecks({ check, ROOT })
 const { runDerivedOpenChecks } = await import('./smoke-derived-open.mjs')
 await runDerivedOpenChecks({ api, check, ROOT })
+const { runCredentialChecks } = await import('./smoke-credentials.mjs')
+await runCredentialChecks({ check, ROOT })
 
 const failed = results.filter((entry) => !entry.ok)
 for (const entry of results) console.log(`${entry.ok ? '✓' : '✗'} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ''}`)

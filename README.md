@@ -68,7 +68,8 @@ The panel persists its own layer at
 |---|---|---|
 | `enabled` | `true` | Master switch: off disables capture, MCP management and staging. |
 | `serverUrl` | `http://127.0.0.1:49374` | ai-memory server base URL — local, or a remote workstream server. |
-| `token` | `''` | Static bearer. **Auto-detected** from `<dataDir>/auth-token` / `auth-header` when blank (what `ai-memory install-hooks --apply` writes). |
+| `token` | `''` | Static bearer. **Auto-detected** from `<dataDir>/auth-token` / `auth-header` when blank (what `ai-memory install-hooks --apply` writes). Ignored when `tokenRef` is set. |
+| `tokenRef` | `''` | DSH credential name holding the bearer (e.g. `AI_MEMORY_TOKEN` under `refs` in `~/.dsh/.credentials.yaml`). Wins over `token`: the MCP row gets `expandTemplates: true` + `Authorization: 'Bearer ${credential:<tokenRef>}'`, hooks and panel calls resolve it through `ctx.credentials` per request, so rotation only touches the credential store. Saving it drops a stored literal `token`. |
 | `dataDir` | platform default¹ | ai-memory data dir: hook spool, session state, `auth-token`. |
 | `capture` | `true` | Run the lifecycle hooks. |
 | `captureMode` | `scripts` | `scripts` runs `hooks/dsh/*.sh`; `native` runs `ai-memory hook --event … --agent dsh`. |
@@ -287,9 +288,11 @@ session id, and why a message never wakes the recipient by itself.
   the authenticated `connection` RPC channel (`/api/ai-memory.*`), which the
   connection service admits with a Host/Origin fence plus a live peer — no token
   is passed to, or readable by, the page.
-* The token is **written into the profile patch** only because `dsh-mcp-client`
-  has no token-file option. That file lives in your home; keeping it 0600 and out
-  of version control is your call. `hooks.json` follows the same rule.
+* With `tokenRef` set, no bearer is written anywhere by the plugin: the profile
+  patch carries `${credential:<tokenRef>}` and `hooks.json` omits it. Without it,
+  the literal token is **written into the profile patch** (and `hooks.json`);
+  those files live in your home, and keeping them 0600 and out of version
+  control is your call.
 * The only files the plugin writes outside its own state directory are the marked
   MCP block in the profile patch and an `.ai-memory.toml` you explicitly ask for.
 * Every retrieved memory/handoff is untrusted historical data; the panel and this

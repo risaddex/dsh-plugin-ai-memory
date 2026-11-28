@@ -52,6 +52,7 @@ function MemoryPanel(props) {
       setForm((current) => current ?? {
         serverUrl: value.config.serverUrl,
         token: "",
+        tokenRef: value.config.tokenRef || "",
         dataDir: value.config.dataDir,
         projectStrategy: value.config.projectStrategy,
         captureMode: value.config.captureMode,
@@ -194,6 +195,7 @@ function isStatusDocument(value) {
       messagingGuidance: form.messagingGuidance,
       mcpServerName: form.mcpServerName,
       serverUrl: form.serverUrl,
+      tokenRef: form.tokenRef,
       dataDir: form.dataDir,
     };
     // An empty box means "leave the stored token alone"; `hasToken` drives the hint.
@@ -527,6 +529,12 @@ function isStatusDocument(value) {
           h("input", {
             id: "am-token", className: "am-in mono", type: "password", value: form.token,
             placeholder: status.config.hasToken ? "•••••••• (unchanged)" : "optional", onChange: set("token"),
+            disabled: Boolean(form.tokenRef),
+          })),
+        h(Field, { key: "tokref", id: "am-tokenref", label: t("field.tokenRef"), hint: t("field.tokenRef.hint") },
+          h("input", {
+            id: "am-tokenref", className: "am-in mono", value: form.tokenRef,
+            placeholder: "AI_MEMORY_TOKEN", onChange: set("tokenRef"),
           })),
         h(Field, { key: "dir", id: "am-datadir", label: t("field.dataDir"), hint: t("field.dataDir.hint") },
           h("input", {
